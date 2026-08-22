@@ -1,0 +1,210 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Parameters:
+  VpcLinkID:
+    Type: String
+    Description: VPC Link ID
+  NlbDNS:
+    Type: String
+    Description: Nlb DNS
+  ENV:
+    Type: String
+    Description: Environment
+  WebACLARN: 
+    Type: String
+    Description: WebACLARN
+  REGION:
+    Type: String
+    Description: Region
+  AccountID:
+    Type: String
+    Description: AWS Account ID
+
+Conditions:
+  IsProd: !Equals 
+  - !Ref ENV
+  - "prod" 
+
+Resources:
+  RestApi:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: "public api gateway"
+      Body:
+        openapi: "3.0.1"
+        info:
+          title: "public api gateway"
+          description: "public api gateway"
+          version: "2021-03-12T22:30:09Z"
+        components:
+          schemas:
+            Empty:
+              title: "Empty Schema"
+              type: "object"
+        x-amazon-apigateway-gateway-responses:
+          DEFAULT_5XX:
+            responseParameters:
+              gatewayresponse.header.Access-Control-Allow-Methods: "'OPTIONS,GET,POST,PUT,PATCH,DELETE'"
+              gatewayresponse.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              gatewayresponse.header.Access-Control-Expose-Headers: "'X-Amzn-Trace-Id,X-Amzn-Waf-Action'" 
+              gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+          DEFAULT_4XX:
+            responseParameters:
+              gatewayresponse.header.Access-Control-Allow-Methods: "'OPTIONS,GET,POST,PUT,PATCH,DELETE'"
+              gatewayresponse.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amzn-Waf-Action'"   
+              gatewayresponse.header.Access-Control-Expose-Headers: "'X-Amzn-Trace-Id,X-Amzn-Waf-Action'" 
+              gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+          WAF_FILTERED:
+            responseParameters:
+              gatewayresponse.header.Access-Control-Allow-Methods: "'OPTIONS,GET,POST,PUT,PATCH,DELETE'"
+              gatewayresponse.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amzn-Waf-Action,waf-block-header'"   
+              gatewayresponse.header.Access-Control-Expose-Headers: "'X-Amzn-Trace-Id,X-Amzn-Waf-Action,waf-block-header'"  
+              gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+        x-amazon-apigateway-binary-media-types:
+        - "application/excel"
+        - "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        - "application/octet-stream"
+        - "application/pdf"
+        paths:
+            /pdf:
+              post:
+                responses:
+                  "200":
+                    description: "200 response"
+                    content:
+                      application/json:
+                        schema:
+                          $ref: "#/components/schemas/Empty"
+                x-amazon-apigateway-integration:
+                  type: "aws_proxy"
+                  httpMethod: "POST"
+                  uri: !ImportValue
+                    'Fn::Sub': "GenericPDFExport-${ENV}"
+                  responses:
+                    default:
+                      statusCode: "200"
+                  passthroughBehavior: "when_no_match"
+                  contentHandling: "CONVERT_TO_TEXT"
+              options:
+                responses:
+                  "200":
+                    description: "200 response"
+                    headers:
+                      Access-Control-Allow-Origin:
+                        schema:
+                          type: "string"
+                      Access-Control-Allow-Methods:
+                        schema:
+                          type: "string"
+                      Access-Control-Allow-Headers:
+                        schema:
+                          type: "string"
+                    content:
+                      application/json:
+                        schema:
+                          $ref: "#/components/schemas/Empty"
+                x-amazon-apigateway-integration:
+                  type: "mock"
+                  responses:
+                    default:
+                      statusCode: "200"
+                      responseParameters:
+                        method.response.header.Access-Control-Allow-Methods: "'DELETE,GET,HEAD,OPTIONS,PATCH,POST,PUT'"
+                        method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token'"
+                        method.response.header.Access-Control-Allow-Origin: "'*'"
+                  requestTemplates:
+                    application/json: "{\"statusCode\": 200}"
+                  passthroughBehavior: "when_no_match"
+            /px-api-gateway/saas-login/reset-password:
+              post:
+                responses:
+                  "200":
+                    description: "200 response"
+                    headers:
+                      Access-Control-Allow-Origin:
+                        schema:
+                          type: "string"
+                    content:
+                      application/json:
+                        schema:
+                          $ref: "#/components/schemas/Empty"
+                x-amazon-apigateway-integration:
+                  type: "aws_proxy"
+                  httpMethod: "POST"
+                  uri: !ImportValue
+                    'Fn::Sub': "px-saas-buyer-onboading-reset-password-api-${ENV}-arn"
+                  responses:
+                    default:
+                      statusCode: "200"
+                      responseParameters:
+                        method.response.header.Access-Control-Allow-Origin: "'*'"
+                  passthroughBehavior: "when_no_match"
+                  contentHandling: "CONVERT_TO_TEXT"
+              options:
+                responses:
+                  "200":
+                    description: "200 response"
+                    headers:
+                      Access-Control-Allow-Origin:
+                        schema:
+                          type: "string"
+                      Access-Control-Allow-Methods:
+                        schema:
+                          type: "string"
+                      Access-Control-Allow-Headers:
+                        schema:
+                          type: "string"
+                    content:
+                      application/json:
+                        schema:
+                          $ref: "#/components/schemas/Empty"
+                x-amazon-apigateway-integration:
+                  type: "mock"
+                  responses:
+                    default:
+                      statusCode: "200"
+                      responseParameters:
+                        method.response.header.Access-Control-Allow-Methods: "'OPTIONS,POST'"
+                        method.response.header.Access-Control-Allow-Headers: "'tenant_id,X-Amzn-Trace-Id,Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+                        method.response.header.Access-Control-Allow-Origin: "'*'"
+                  requestTemplates:
+                    application/json: "{\"statusCode\": 200}"
+                  passthroughBehavior: "when_no_match"
+        Tags: 
+        - Key: tenant_id
+          Value: "shared"
+  APIDeployment$TIMESTAMP$:
+    Type: AWS::ApiGateway::Deployment
+    Properties:
+      RestApiId: !Ref RestApi
+      Description: 'First deployment: Integration Stage'
+  APIStage:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      StageName: 'Integration'
+      RestApiId: !Ref RestApi
+      DeploymentId: !Ref APIDeployment$TIMESTAMP$
+      Description: 'Integration Stage'
+      CacheClusterEnabled: false
+      TracingEnabled : true
+      MethodSettings: 
+        - DataTraceEnabled: true
+          HttpMethod: "*"
+          LoggingLevel: "INFO"
+          MetricsEnabled: !If [IsProd, true, false]
+          ResourcePath: "/*"
+      Tags: 
+        - Key: tenant_id
+          Value: !Sub "shared"
+  AddAPIGatewayToWAF:       
+    Type: AWS::WAFv2::WebACLAssociation
+    Properties:
+      ResourceArn: !Sub 'arn:aws:apigateway:${REGION}::/restapis/${RestApi.RestApiId}/stages/${APIStage}'
+      WebACLArn: !Sub '${WebACLARN}'
+
+Outputs:
+  RestApiID:
+    Description: "API Gateway ID"
+    Value: !Ref RestApi
+    Export:
+      Name: "Public-RestApiID"

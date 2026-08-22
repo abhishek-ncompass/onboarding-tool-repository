@@ -1,0 +1,359 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+#config endpoint, contract endpoint, vpc link, nlb dns, tenant Name, tenant ID, user pool dynamic
+
+Parameters:
+  sourceVpc:
+    Type: String
+    Description: sourceVpc
+  VpcLinkID:
+    Type: String
+    Description: VPC Link ID
+  NlbDNS:
+    Type: String
+    Description: Nlb DNS
+  ENV:
+    Type: String
+    Description: Environment
+  VpcEndpointID:
+    Type: String
+    Description: VpcEndpointID
+  WebACLARN: 
+    Type: String
+    Description: WebACLARN
+  REGION:
+    Type: String
+    Description: Region 
+  AccountID:
+    Type: String
+    Description: AWS Account ID 
+
+Resources:
+  RestApi:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: "PhoneX Private Endpoints - Dev Alike"
+      EndpointConfiguration: 
+        Types: 
+          - "REGIONAL"
+      Body:
+        openapi: "3.0.1"
+        info:
+          title: "PhoneX Private Endpoints - Dev Alike"
+          description: "Private APIs for PhoneX Internal Endpoints - Dev alike"
+          version: "2021-03-12T22:30:09Z"
+        components: {}
+        x-amazon-apigateway-gateway-responses:
+          DEFAULT_5XX:
+            responseParameters:
+              gatewayresponse.header.Access-Control-Allow-Methods: "'OPTIONS,GET,POST,PUT,PATCH,DELETE'"
+              gatewayresponse.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              gatewayresponse.header.Access-Control-Expose-Headers: "'X-Amzn-Trace-Id,X-Amzn-Waf-Action'" 
+              gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+          DEFAULT_4XX:
+            responseParameters:
+              gatewayresponse.header.Access-Control-Allow-Methods: "'OPTIONS,GET,POST,PUT,PATCH,DELETE'"
+              gatewayresponse.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amzn-Waf-Action'"   
+              gatewayresponse.header.Access-Control-Expose-Headers: "'X-Amzn-Trace-Id,X-Amzn-Waf-Action'" 
+              gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+          WAF_FILTERED:
+            responseParameters:
+              gatewayresponse.header.Access-Control-Allow-Methods: "'OPTIONS,GET,POST,PUT,PATCH,DELETE'"
+              gatewayresponse.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amzn-Waf-Action,waf-block-header'"   
+              gatewayresponse.header.Access-Control-Expose-Headers: "'X-Amzn-Trace-Id,X-Amzn-Waf-Action,waf-block-header'"     
+              gatewayresponse.header.Access-Control-Allow-Origin: "'*'"                       
+        x-amazon-apigateway-binary-media-types:
+        - "application/excel"
+        - "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        - "application/octet-stream"
+        - "application/pdf"
+        paths:
+          /px-api-gateway/pxnr/sales-orders:
+            post:
+              parameters:
+              - name: "email"
+                in: "header"
+                required: true
+                schema:
+                  type: "string"
+              - name: "tenant_id"
+                in: "header"
+                required: true
+                schema:
+                  type: "string"
+              - name: "roles"
+                in: "header"
+                required: true
+                schema:
+                  type: "string"
+              - name: "pxns-participant-id"
+                in: "header"
+                required: true
+                schema:
+                  type: "string"
+              x-amazon-apigateway-integration:
+                httpMethod: "POST"
+                uri: !ImportValue
+                  'Fn::Sub': 'ROrderArn-${ENV}'
+                responses:
+                  default:
+                    statusCode: "200"
+                passthroughBehavior: "when_no_match"
+                contentHandling: "CONVERT_TO_TEXT"
+                type: "aws_proxy"
+            options:
+              responses:
+                "200":
+                  description: "200 response"
+                  headers:
+                    Access-Control-Expose-Headers:
+                      schema:
+                        type: "string"
+                    Access-Control-Allow-Origin:
+                      schema:
+                        type: "string"
+                    Access-Control-Allow-Methods:
+                      schema:
+                        type: "string"
+                    Access-Control-Allow-Headers:
+                      schema:
+                        type: "string"
+                  content: {}
+              x-amazon-apigateway-integration:
+                responses:
+                  default:
+                    statusCode: "200"
+                    responseParameters:
+                      method.response.header.Access-Control-Allow-Methods: "'OPTIONS,POST'"
+                      method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,pxns-participant-id'"
+                      method.response.header.Access-Control-Allow-Origin: "'*'"
+                requestTemplates:
+                  application/json: "{\"statusCode\": 200}"
+                passthroughBehavior: "when_no_match"
+                type: "mock"                
+          /px-api-gateway/cache/pxw-tags:
+            get:
+              parameters:
+              - name: "tenant_id"
+                in: "header"
+                required: true
+                schema:
+                  type: "string"
+              - name: "roles"
+                in: "header"
+                schema:
+                  type: "string"
+              - name: "email"
+                in: "header"
+                schema:
+                  type: "string"
+              responses:
+                "200":
+                  description: "200 response"
+                  headers:
+                    Access-Control-Allow-Origin:
+                      schema:
+                        type: "string"
+                  content: {}
+              x-amazon-apigateway-integration:
+                httpMethod: "POST"
+                uri: !ImportValue
+                  'Fn::Sub': 'px-saas-cache-${ENV}-arn'
+                responses:
+                  default:
+                    statusCode: "200"
+                    responseParameters:
+                      method.response.header.Access-Control-Allow-Origin: "'*'"
+                passthroughBehavior: "when_no_match"
+                cacheNamespace: "cache-pxw-tags"
+                cacheKeyParameters:
+                - "method.request.header.tenant_id"
+                contentHandling: "CONVERT_TO_TEXT"
+                type: "aws_proxy"
+            options:
+              responses:
+                "200":
+                  description: "200 response"
+                  headers:
+                    Access-Control-Allow-Origin:
+                      schema:
+                        type: "string"
+                    Access-Control-Allow-Methods:
+                      schema:
+                        type: "string"
+                    Access-Control-Allow-Headers:
+                      schema:
+                        type: "string"
+                  content: {}
+              x-amazon-apigateway-integration:
+                responses:
+                  default:
+                    statusCode: "200"
+                    responseParameters:
+                      method.response.header.Access-Control-Allow-Methods: "'OPTIONS,GET'"
+                      method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+                      method.response.header.Access-Control-Allow-Origin: "'*'"
+                requestTemplates:
+                  application/json: "{\"statusCode\": 200}"
+                passthroughBehavior: "when_no_match"
+                type: "mock"     
+
+      Tags: 
+        - Key: tenant_id
+          Value: shared
+  APIDeployment$TIMESTAMP$:
+    Type: AWS::ApiGateway::Deployment
+    Properties:
+      RestApiId: !Ref RestApi
+      Description: 'First deployment: Integration Stage'
+  APIStage:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      StageName: 'Integration'
+      RestApiId: !Ref RestApi
+      DeploymentId: !Ref APIDeployment$TIMESTAMP$
+      Description: 'Integration Stage'
+      CacheClusterEnabled: true
+      TracingEnabled : true
+      CacheClusterSize: '0.5'
+      AccessLogSetting:
+        DestinationArn: !Sub 'arn:aws:logs:${REGION}:${AccountID}:log-group:Dev-Alike-Private-API-Gateway-Custom-Logging-Api-Gateway-${ENV}'
+        Format: '{"requestTime":"$context.requestTime","tenantId":"dev-alike-privateAPIGateway","requestId":"$context.requestId","httpMethod":"$context.httpMethod","path":"$context.path","resourcePath":"$context.resourcePath","status":$context.status,"responseLatency":$context.responseLatency,"xrayTraceId":"$context.xrayTraceId","integrationRequestId":"$context.integration.requestId","functionResponseStatus":"$context.integration.status","integrationLatency":"$context.integration.latency","integrationServiceStatus":"$context.integration.integrationStatus","ip":"$context.identity.sourceIp","userAgent":"$context.identity.userAgent","body":"$input.body"}'
+      MethodSettings: 
+        - DataTraceEnabled: true
+          HttpMethod: "*"
+          LoggingLevel: "INFO"
+          MetricsEnabled: true
+          ResourcePath: "/*"
+          CacheTtlInSeconds: 600
+        - DataTraceEnabled: true
+          HttpMethod: "GET"
+          LoggingLevel: "INFO"
+          MetricsEnabled: true
+          ResourcePath: "/px-api-gateway/ml/offers_data"
+          CachingEnabled: false
+        - DataTraceEnabled: true
+          HttpMethod: "GET"
+          LoggingLevel: "INFO"
+          MetricsEnabled: true
+          ResourcePath: "/px-api-gateway/pxnr/stocklist/export"
+          CachingEnabled: false    
+        - DataTraceEnabled: true
+          HttpMethod: "GET"
+          LoggingLevel: "INFO"
+          MetricsEnabled: true
+          ResourcePath: "/px-api-gateway/pxns/orderservices/selectedoptions"
+          CachingEnabled: false        
+        - DataTraceEnabled: true
+          HttpMethod: "GET"
+          LoggingLevel: "INFO"
+          MetricsEnabled: true
+          ResourcePath: "/px-api-gateway/account/buyer/{buyernumber}/document-status/address"
+          CachingEnabled: false
+        - DataTraceEnabled: true
+          HttpMethod: "GET"
+          LoggingLevel: "INFO"
+          MetricsEnabled: true
+          ResourcePath: "/px-api-gateway/load-settings/{tableName}"
+          CachingEnabled: false  
+        - DataTraceEnabled: true
+          HttpMethod: "GET"
+          LoggingLevel: "INFO"
+          MetricsEnabled: true
+          ResourcePath: "/px-api-gateway/pxn/stocklist-settings"
+          CachingEnabled: false
+        - DataTraceEnabled: true
+          HttpMethod: "GET"
+          LoggingLevel: "INFO"
+          MetricsEnabled: true
+          ResourcePath: "/px-api-gateway/pxn/inventory-settings"
+          CachingEnabled: false
+        - DataTraceEnabled: true
+          HttpMethod: "GET"
+          LoggingLevel: "INFO"
+          MetricsEnabled: true
+          ResourcePath: "/px-api-gateway/pxn/salesorder-settings"
+          CachingEnabled: false  
+        - DataTraceEnabled: true
+          HttpMethod: "GET"
+          LoggingLevel: "INFO"
+          MetricsEnabled: true
+          ResourcePath: "/px-api-gateway/pxn/orderservices-settings"
+          CachingEnabled: false       
+        - DataTraceEnabled: true
+          HttpMethod: "GET"
+          LoggingLevel: "INFO"
+          MetricsEnabled: true
+          ResourcePath: "/px-api-gateway/settings/grades"
+          CachingEnabled: false      
+        - DataTraceEnabled: true
+          HttpMethod: "GET"
+          LoggingLevel: "INFO"
+          MetricsEnabled: true
+          ResourcePath: "/px-api-gateway/settings/inventory/fields"
+          CachingEnabled: false      
+        - DataTraceEnabled: true
+          HttpMethod: "GET"
+          LoggingLevel: "INFO"
+          MetricsEnabled: true
+          ResourcePath: "/px-api-gateway/settings/inventory/categories"
+          CachingEnabled: false           
+        - DataTraceEnabled: true
+          HttpMethod: "POST"
+          LoggingLevel: "INFO"
+          MetricsEnabled: true
+          ResourcePath: "/px-api-gateway/settings/grades"
+          CachingEnabled: false      
+        - DataTraceEnabled: true
+          HttpMethod: "POST"
+          LoggingLevel: "INFO"
+          MetricsEnabled: true
+          ResourcePath: "/px-api-gateway/settings/inventory/fields"
+          CachingEnabled: false      
+        - DataTraceEnabled: true
+          HttpMethod: "POST"
+          LoggingLevel: "INFO"
+          MetricsEnabled: true
+          ResourcePath: "/px-api-gateway/settings/inventory/categories"
+          CachingEnabled: false            
+        - DataTraceEnabled: true
+          HttpMethod: "GET"
+          LoggingLevel: "INFO"
+          MetricsEnabled: true
+          ResourcePath: "/wms/cache/user"
+          CachingEnabled: true       
+          CacheTtlInSeconds: 3600
+        - DataTraceEnabled: true
+          HttpMethod: "POST"
+          LoggingLevel: "INFO"
+          MetricsEnabled: true
+          ResourcePath: "/px-api-gateway/data-enrich/currency"
+          CachingEnabled: false   
+        - DataTraceEnabled: true
+          HttpMethod: "POST"
+          LoggingLevel: "INFO"
+          MetricsEnabled: true
+          ResourcePath: "/px-api-gateway/pxw/acct-outbox"
+          CachingEnabled: false 
+        - DataTraceEnabled: true
+          HttpMethod: "POST"
+          LoggingLevel: "INFO"
+          MetricsEnabled: true
+          ResourcePath: "/px-api-gateway/pxw/inventory/receive-purchase-order"
+          CachingEnabled: false  
+
+      Tags: 
+        - Key: tenant_id
+          Value: shared
+  # AddAPIGatewayToWAF:       
+  #   Type: AWS::WAFv2::WebACLAssociation
+  #   Properties:
+  #     ResourceArn: !Sub 'arn:aws:apigateway:${REGION}::/restapis/${RestApi.RestApiId}/stages/Integration'
+  #     WebACLArn: !Sub '${WebACLARN}'          
+Outputs:
+  RestApiID:
+    Description: "API Gateway ID"
+    Value: !Ref RestApi
+    Export:
+      Name: "dev-alike-private-RestApiID"                
+

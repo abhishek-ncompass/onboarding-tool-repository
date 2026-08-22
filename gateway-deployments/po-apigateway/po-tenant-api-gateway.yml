@@ -1,0 +1,261 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+#config endpoint, contract endpoint, vpc link, nlb dns, tenant Name, tenant ID, user pool dynamic
+
+Parameters:
+  TenantID:
+    Type: String
+    Description: Tenant ID
+  TenantName:
+    Type: String
+    Description: Tenant Name
+  UserPoolArn: 
+    Type: String
+    Description: User Pool Arn
+  VpcLinkID:
+    Type: String
+    Description: VPC Link ID
+  NlbDNS:
+    Type: String
+    Description: Nlb DNS
+  ENV:
+    Type: String
+    Description: Environment
+  AccountID:
+    Type: String
+    Description: AWS Account ID     
+  REGION:
+    Type: String
+    Description: Region
+  ApiType:
+    Type: String
+    Description: API Endpoint configuration
+    Default: "REGIONAL"
+    AllowedValues:
+      - "REGIONAL"
+      - "EDGE"
+      - "PRIVATE" 
+
+Resources:
+  RestApi:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: !Sub "${TenantName} API (${TenantID}) (po)"
+      EndpointConfiguration: 
+        Types: 
+          - !Ref ApiType
+      Body:
+        openapi: "3.0.1"
+        info:
+          title: !Sub "${TenantName} API (${TenantID}) (po)"
+          description: !Sub "PO API for ${TenantName} (${TenantID})"
+        components:
+          schemas:
+            Empty:
+              title: "Empty Schema"
+              type: "object"
+          securitySchemes:
+            PxTenantSpecificAuthorizer:
+              type: "apiKey"
+              name: "Authorization"
+              in: "header"
+              x-amazon-apigateway-authtype: "cognito_user_pools"
+              x-amazon-apigateway-authorizer:
+                type: "cognito_user_pools"
+                providerARNs:
+                - !Ref UserPoolArn
+        x-amazon-apigateway-gateway-responses:
+          DEFAULT_5XX:
+            responseParameters:
+              gatewayresponse.header.Access-Control-Allow-Methods: "'OPTIONS,GET,POST,PUT,PATCH,DELETE'"
+              gatewayresponse.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              gatewayresponse.header.Access-Control-Expose-Headers: "'X-Amzn-Trace-Id,X-Amzn-Waf-Action'" 
+              gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+          DEFAULT_4XX:
+            responseParameters:
+              gatewayresponse.header.Access-Control-Allow-Methods: "'OPTIONS,GET,POST,PUT,PATCH,DELETE'"
+              gatewayresponse.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amzn-Waf-Action'"   
+              gatewayresponse.header.Access-Control-Expose-Headers: "'X-Amzn-Trace-Id,X-Amzn-Waf-Action'" 
+              gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+          WAF_FILTERED:
+            responseParameters:
+              gatewayresponse.header.Access-Control-Allow-Methods: "'OPTIONS,GET,POST,PUT,PATCH,DELETE'"
+              gatewayresponse.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amzn-Waf-Action,waf-block-header'"   
+              gatewayresponse.header.Access-Control-Expose-Headers: "'X-Amzn-Trace-Id,X-Amzn-Waf-Action,waf-block-header'"  
+              gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+        x-amazon-apigateway-binary-media-types:
+        - "application/excel"
+        - "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        - "application/octet-stream"
+        - "application/pdf"
+        paths:
+          /po/awards/import-template:
+            get:
+              parameters:
+              - name: "ctx-tags"
+                in: "header"
+                required: false
+                schema:
+                  type: "string"
+              security:
+              - PxTenantSpecificAuthorizer: []
+              responses:
+                "200":
+                  description: "200 response"
+                  headers:
+                    Access-Control-Allow-Origin:
+                      schema:
+                        type: "string"
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/Empty"
+              x-amazon-apigateway-integration:
+                type: "aws_proxy"
+                httpMethod: "POST"
+                uri: !ImportValue
+                  'Fn::Sub': 'AwardsArn-${ENV}'
+                responses:
+                  default:
+                    statusCode: "200"
+                    responseParameters:
+                      method.response.header.Access-Control-Allow-Origin: "'*'"
+                passthroughBehavior: "when_no_match"
+                contentHandling: "CONVERT_TO_TEXT"
+            options:
+              responses:
+                "200":
+                  description: "200 response"
+                  headers:
+                    Access-Control-Allow-Origin:
+                      schema:
+                        type: "string"
+                    Access-Control-Allow-Methods:
+                      schema:
+                        type: "string"
+                    Access-Control-Allow-Headers:
+                      schema:
+                        type: "string"
+                    Access-Control-Expose-Headers:
+                      schema:
+                        type: "string"                        
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/Empty"
+              x-amazon-apigateway-integration:
+                type: "mock"
+                responses:
+                  default:
+                    statusCode: "200"
+                    responseParameters:
+                      method.response.header.Access-Control-Allow-Methods: "'OPTIONS,GET'"
+                      method.response.header.Access-Control-Allow-Headers: "'x-amzn-trace-id,Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,ctx-tags'"
+                      method.response.header.Access-Control-Allow-Origin: "'*'"
+                      method.response.header.Access-Control-Expose-Headers: "'ctx-tags'"
+                requestTemplates:
+                  application/json: "{\"statusCode\": 200}"
+                passthroughBehavior: "when_no_match"
+          /po/awards/fulfillment/export:
+            get:
+              parameters:
+              - name: "ctx-tags"
+                in: "header"
+                required: false
+                schema:
+                  type: "string"            
+              security:
+              - PxTenantSpecificAuthorizer: []
+              responses:
+                "200":
+                  description: "200 response"
+                  headers:
+                    Access-Control-Allow-Origin:
+                      schema:
+                        type: "string"
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/Empty"
+              x-amazon-apigateway-integration:
+                type: "aws_proxy"
+                httpMethod: "POST"
+                uri: !ImportValue
+                  'Fn::Sub': 'AwardsArn-${ENV}'
+                responses:
+                  default:
+                    statusCode: "200"
+                    responseParameters:
+                      method.response.header.Access-Control-Allow-Origin: "'*'"
+                passthroughBehavior: "when_no_match"
+                contentHandling: "CONVERT_TO_TEXT"
+            options:
+              responses:
+                "200":
+                  description: "200 response"
+                  headers:
+                    Access-Control-Allow-Origin:
+                      schema:
+                        type: "string"
+                    Access-Control-Allow-Methods:
+                      schema:
+                        type: "string"
+                    Access-Control-Allow-Headers:
+                      schema:
+                        type: "string"
+                    Access-Control-Expose-Headers:
+                      schema:
+                        type: "string"                          
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/Empty"
+              x-amazon-apigateway-integration:
+                type: "mock"
+                responses:
+                  default:
+                    statusCode: "200"
+                    responseParameters:
+                      method.response.header.Access-Control-Allow-Methods: "'OPTIONS,GET'"
+                      method.response.header.Access-Control-Allow-Headers: "'x-amzn-trace-id,Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,ctx-tags'"
+                      method.response.header.Access-Control-Allow-Origin: "'*'"
+                      method.response.header.Access-Control-Expose-Headers: "'ctx-tags'"
+                requestTemplates:
+                  application/json: "{\"statusCode\": 200}"
+                passthroughBehavior: "when_no_match"
+      Tags: 
+        - Key: tenant_id
+          Value: !Sub "${TenantID}"
+  APIDeployment$TIMESTAMP$:
+    Type: AWS::ApiGateway::Deployment
+    Properties:
+      RestApiId: !Ref RestApi
+      Description: 'First deployment: Integration Stage'
+  APIStage:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      StageName: 'Integration'
+      RestApiId: !Ref RestApi
+      DeploymentId: !Ref APIDeployment$TIMESTAMP$
+      Description: 'Integration Stage'
+      CacheClusterEnabled: false
+      AccessLogSetting: 
+         DestinationArn: !Sub 'arn:aws:logs:${REGION}:${AccountID}:log-group:PO-Custom-Logging-Api-Gateway-${ENV}'
+         Format: !Sub '{"requestTime":"$context.requestTime","tenantId":${TenantID},"requestId":"$context.requestId","httpMethod":"$context.httpMethod","path":"$context.path","resourcePath":"$context.resourcePath","status":$context.status,"responseLatency":$context.responseLatency,"xrayTraceId":"$context.xrayTraceId","integrationRequestId":"$context.integration.requestId","functionResponseStatus":"$context.integration.status","integrationLatency":"$context.integration.latency","integrationServiceStatus":"$context.integration.integrationStatus","ip":"$context.identity.sourceIp","userAgent":"$context.identity.userAgent","body":"$input.body"}'
+      TracingEnabled : true
+      MethodSettings: 
+        - DataTraceEnabled: true
+          HttpMethod: "*"
+          LoggingLevel: "INFO"
+          MetricsEnabled: true
+          ResourcePath: "/*"
+      Tags: 
+        - Key: tenant_id
+          Value: !Sub "${TenantID}"
+
+Outputs:
+  RestApiID:
+    Description: "API Gateway ID"
+    Value: !Ref RestApi
+    Export:
+      Name: !Sub "${TenantID}-RestApiID-po"

@@ -1,0 +1,393 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+#config endpoint, contract endpoint, vpc link, nlb dns, tenant Name, tenant ID, user pool dynamic
+
+Parameters:
+  TenantID:
+    Type: String
+    Description: Tenant ID
+  TenantName:
+    Type: String
+    Description: Tenant Name
+  UserPoolArn:
+    Type: String
+    Description: User Pool Arn
+  VpcLinkID:
+    Type: String
+    Description: VPC Link ID
+  NlbDNS:
+    Type: String
+    Description: Nlb DNS
+  ENV:
+    Type: String
+    Description: Environment
+  WebACLARN:
+    Type: String
+    Description: WebACLARN
+  REGION:
+    Type: String
+    Description: Region
+  DetailedMetrics:
+    Type: String
+    Description: Detailed Metrics
+    AllowedValues:
+    - "true"
+    - "false"
+  AccountID:
+    Type: String
+    Description: AWS Account ID
+  ApiType:
+    Type: String
+    Description: API Endpoint configuration
+    Default: "REGIONAL"
+    AllowedValues:
+    - "REGIONAL"
+    - "EDGE"
+    - "PRIVATE"
+  EventbridgeNlbURL:
+    Type: String
+    Description: Nlb URL for Eventbridge
+  BuyerDetailPort:
+    Type: String
+    Description: Dynamic port for buyer detail routing
+    Default: "80"
+
+Conditions:
+  EnableMetricsCondition: !Equals [!Ref DetailedMetrics, "true"]
+
+
+Resources:
+  RestApi:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: !Sub "${TenantName} API (${TenantID})"
+      EndpointConfiguration:
+        Types:
+        - !Ref ApiType
+      Body:
+        openapi: "3.0.1"
+        info:
+          title: !Sub "${TenantName} API (${TenantID})"
+          description: !Sub "API for ${TenantName} (${TenantID})"
+          version: "2021-03-12T22:30:09Z"
+        components:
+          schemas:
+            Empty:
+              title: "Empty Schema"
+              type: "object"
+          securitySchemes:
+            PxTenantSpecificAuthorizer:
+              type: "apiKey"
+              name: "Authorization"
+              in: "header"
+              x-amazon-apigateway-authtype: "cognito_user_pools"
+              x-amazon-apigateway-authorizer:
+                type: "cognito_user_pools"
+                providerARNs:
+                - !Ref UserPoolArn
+        x-amazon-apigateway-gateway-responses:
+          DEFAULT_5XX:
+            responseParameters:
+              gatewayresponse.header.Access-Control-Allow-Methods: "'OPTIONS,GET,POST,PUT,PATCH,DELETE'"
+              gatewayresponse.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              gatewayresponse.header.Access-Control-Expose-Headers: "'X-Amzn-Trace-Id,X-Amzn-Waf-Action'"
+              gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+          DEFAULT_4XX:
+            responseParameters:
+              gatewayresponse.header.Access-Control-Allow-Methods: "'OPTIONS,GET,POST,PUT,PATCH,DELETE'"
+              gatewayresponse.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amzn-Waf-Action'"
+              gatewayresponse.header.Access-Control-Expose-Headers: "'X-Amzn-Trace-Id,X-Amzn-Waf-Action'"
+              gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+          WAF_FILTERED:
+            responseParameters:
+              gatewayresponse.header.Access-Control-Allow-Methods: "'OPTIONS,GET,POST,PUT,PATCH,DELETE'"
+              gatewayresponse.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amzn-Waf-Action,waf-block-header'"
+              gatewayresponse.header.Access-Control-Expose-Headers: "'X-Amzn-Trace-Id,X-Amzn-Waf-Action,waf-block-header'"
+              gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+        x-amazon-apigateway-binary-media-types:
+        - "application/excel"
+        - "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        - "application/octet-stream"
+        - "application/pdf"
+        paths:
+          /{proxy+}:
+            options:
+              responses:
+                "200":
+                  description: "200 response"
+                  headers:
+                    Access-Control-Allow-Origin:
+                      schema:
+                        type: "string"
+                    Access-Control-Allow-Methods:
+                      schema:
+                        type: "string"
+                    Access-Control-Allow-Headers:
+                      schema:
+                        type: "string"
+                    Access-Control-Expose-Headers:
+                      schema:
+                        type: "string"
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/Empty"
+              x-amazon-apigateway-integration:
+                responses:
+                  default:
+                    statusCode: "200"
+                    responseParameters:
+                      method.response.header.Access-Control-Allow-Methods: "'DELETE,GET,HEAD,OPTIONS,PATCH,POST,PUT'"
+                      method.response.header.Access-Control-Allow-Headers: "'Authorization,Content-Disposition,Content-Type,File-Name,Pxnr-Buyer-Id,REQUEST_ID,Restriction,X-Amz-Date,X-Amz-Security-Token,X-Amzn-Trace-Id,X-Api-Key,auto-item-map,buyerType,document-metadata,document-type,file-expiration-date,file-name,file-title,includeAnalytics,pxns-participant-id,request_id,ctx-tags,tenant_id,uploadedDocumentId,user_name,ctx-warehouse,x-amzn-trace-id,ctx-currency-code'"
+                      method.response.header.Access-Control-Allow-Origin: "'*'"
+                      method.response.header.Access-Control-Expose-Headers: "'Content-Disposition,REQUEST_ID,ctx-tags,ctx-warehouse,ctx-currency-code'"
+                type: "mock"
+                requestTemplates:
+                  application/json: "{\"statusCode\": 200}"
+                passthroughBehavior: "when_no_match"
+          /px-api-gateway/stocklist/pricing/accept-import:
+            post:
+              parameters:
+              - name: "ctx-tags"
+                in: "header"
+                required: false
+                schema:
+                  type: "string"
+              - name: "ctx-warehouse"
+                in: "header"
+                required: false
+                schema:
+                  type: "string"
+              - name: "Accept"
+                in: "header"
+                schema:
+                  type: "string"
+              security:
+              - PxTenantSpecificAuthorizer: []
+              x-amazon-apigateway-integration:
+                type: "http_proxy"
+                connectionId: !Ref VpcLinkID
+                httpMethod: "POST"
+                uri: !Sub "http://${NlbDNS}/api/stocklist/pricing/accept-import"
+                responses:
+                  "200":
+                    statusCode: "200"
+                requestParameters:
+                  integration.request.header.email: "context.authorizer.claims.email"
+                  integration.request.header.tenant_id: "context.authorizer.claims.custom:tenant_id"
+                  integration.request.header.sso_tenant_id: "context.authorizer.claims.custom:sso_tenant_id"
+                  integration.request.header.roles: "context.authorizer.claims.cognito:groups"
+                  integration.request.header.ctx-tags: "method.request.header.ctx-tags"
+                  integration.request.header.ctx-warehouse: "method.request.header.ctx-warehouse"
+                connectionType: "VPC_LINK"
+          /px-api-gateway/account/buyers/export:
+            post:
+              parameters:
+              - name: "ctx-tags"
+                in: "header"
+                required: false
+                schema:
+                  type: "string"
+              - name: "ctx-warehouse"
+                in: "header"
+                required: false
+                schema:
+                  type: "string"
+              security:
+              - PxTenantSpecificAuthorizer: []
+              x-amazon-apigateway-integration:
+                type: "http_proxy"
+                connectionId: !Ref VpcLinkID
+                httpMethod: "POST"
+                uri: !Sub "http://${NlbDNS}/api/account/buyers/export"
+                responses:
+                  default:
+                    statusCode: "200"
+                requestParameters:
+                  integration.request.header.email: "context.authorizer.claims.email"
+                  integration.request.header.tenant_id: "context.authorizer.claims.custom:tenant_id"
+                  integration.request.header.sso_tenant_id: "context.authorizer.claims.custom:sso_tenant_id"
+                  integration.request.header.roles: "context.authorizer.claims.cognito:groups"
+                  integration.request.header.ctx-tags: "method.request.header.ctx-tags"
+                  integration.request.header.ctx-warehouse: "method.request.header.ctx-warehouse"
+                connectionType: "VPC_LINK"
+          /px-api-gateway/v2/account/buyers/addresses/export:
+            post:
+              parameters:
+              - name: "ctx-tags"
+                in: "header"
+                required: false
+                schema:
+                  type: "string"
+              - name: "ctx-warehouse"
+                in: "header"
+                required: false
+                schema:
+                  type: "string"
+              security:
+              - PxTenantSpecificAuthorizer: []
+              x-amazon-apigateway-integration:
+                type: "http_proxy"
+                connectionId: !Ref VpcLinkID
+                httpMethod: "POST"
+                uri: !Sub "http://${NlbDNS}/api/v2/account/buyers/addresses/export"
+                responses:
+                  default:
+                    statusCode: "200"
+                requestParameters:
+                  integration.request.header.email: "context.authorizer.claims.email"
+                  integration.request.header.tenant_id: "context.authorizer.claims.custom:tenant_id"
+                  integration.request.header.sso_tenant_id: "context.authorizer.claims.custom:sso_tenant_id"
+                  integration.request.header.roles: "context.authorizer.claims.cognito:groups"
+                  integration.request.header.ctx-tags: "method.request.header.ctx-tags"
+                  integration.request.header.ctx-warehouse: "method.request.header.ctx-warehouse"
+                connectionType: "VPC_LINK"
+          /px-api-gateway/account/buyer-poe-detail:
+            get:
+              parameters:
+              - name: "ctx-tags"
+                in: "header"
+                required: false
+                schema:
+                  type: "string"
+              - name: "ctx-warehouse"
+                in: "header"
+                required: false
+                schema:
+                  type: "string"
+              security:
+              - PxTenantSpecificAuthorizer: []
+              x-amazon-apigateway-integration:
+                httpMethod: "POST"
+                uri: !ImportValue
+                  'Fn::Sub': 'px-saas-account-details-${ENV}-arn'
+                responses:
+                  default:
+                    statusCode: "200"
+                passthroughBehavior: "when_no_match"
+                contentHandling: "CONVERT_TO_TEXT"
+                type: "aws_proxy"   
+          /px-api-gateway/account/buyer-details:
+            post:
+              parameters:
+              - name: "ctx-tags"
+                in: "header"
+                required: false
+                schema:
+                  type: "string"
+              - name: "ctx-warehouse"
+                in: "header"
+                required: false
+                schema:
+                  type: "string"
+              security:
+              - PxTenantSpecificAuthorizer: []
+              x-amazon-apigateway-integration:
+                httpMethod: "POST"
+                uri: !ImportValue
+                  'Fn::Sub': 'px-saas-account-details-${ENV}-arn'
+                responses:
+                  default:
+                    statusCode: "200"
+                contentHandling: "CONVERT_TO_TEXT"
+                type: "aws_proxy"
+                requestParameters:
+                  integration.request.header.email: "context.authorizer.claims.email"
+                  integration.request.header.tenant_id: "context.authorizer.claims.custom:tenant_id"
+                  integration.request.header.sso_tenant_id: "context.authorizer.claims.custom:sso_tenant_id"
+                  integration.request.header.roles: "context.authorizer.claims.cognito:groups"
+                  integration.request.header.ctx-tags: "method.request.header.ctx-tags"
+                  integration.request.header.ctx-warehouse: "method.request.header.ctx-warehouse"
+          /px-api-gateway/settings/invoice:
+            get:
+              parameters:
+              - name: "ctx-tags"
+                in: "header"
+                required: false
+                schema:
+                  type: "string"
+              - name: "ctx-warehouse"
+                in: "header"
+                required: false
+                schema:
+                  type: "string"
+              security:
+              - PxTenantSpecificAuthorizer: []
+              x-amazon-apigateway-integration:
+                httpMethod: "POST"
+                uri: !ImportValue
+                  'Fn::Sub': 'px-saas-invoice-settings-${ENV}-arn'
+                responses:
+                  default:
+                    statusCode: "200"
+                contentHandling: "CONVERT_TO_TEXT"
+                type: "aws_proxy"
+            post:
+              parameters:
+              - name: "ctx-tags"
+                in: "header"
+                required: false
+                schema:
+                  type: "string"
+              - name: "ctx-warehouse"
+                in: "header"
+                required: false
+                schema:
+                  type: "string"
+              security:
+              - PxTenantSpecificAuthorizer: []
+              x-amazon-apigateway-integration:
+                httpMethod: "POST"
+                uri: !ImportValue
+                  'Fn::Sub': 'px-saas-invoice-settings-${ENV}-arn'
+                responses:
+                  default:
+                    statusCode: "200"
+                contentHandling: "CONVERT_TO_TEXT"
+                type: "aws_proxy"
+
+      Tags:
+      - Key: tenant_id
+        Value: !Sub "${TenantID}"
+  APIDeployment$TIMESTAMP$:
+    Type: AWS::ApiGateway::Deployment
+    Properties:
+      RestApiId: !Ref RestApi
+      Description: 'First deployment: Integration Stage'
+  APIStage:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      StageName: 'Integration'
+      RestApiId: !Ref RestApi
+      DeploymentId: !Ref APIDeployment$TIMESTAMP$
+      Description: 'Integration Stage'
+      CacheClusterEnabled: false
+      AccessLogSetting:
+        DestinationArn: !Sub 'arn:aws:logs:${REGION}:${AccountID}:log-group:Common-Custom-Logging-Api-Gateway-${ENV}'
+        Format: !Sub '{"requestTime":"$context.requestTime","tenantId":${TenantID},"requestId":"$context.requestId","httpMethod":"$context.httpMethod","path":"$context.path","resourcePath":"$context.resourcePath","status":$context.status,"responseLatency":$context.responseLatency,"xrayTraceId":"$context.xrayTraceId","integrationRequestId":"$context.integration.requestId","functionResponseStatus":"$context.integration.status","integrationLatency":"$context.integration.latency","integrationServiceStatus":"$context.integration.integrationStatus","ip":"$context.identity.sourceIp","userAgent":"$context.identity.userAgent","body":"$input.body"}'
+      TracingEnabled: true
+      MethodSettings:
+      - DataTraceEnabled: true
+        HttpMethod: "*"
+        LoggingLevel: "INFO"
+        MetricsEnabled:
+          Fn::If:
+          - EnableMetricsCondition
+          - true
+          - false
+        ResourcePath: "/*"
+      Tags:
+      - Key: tenant_id
+        Value: !Sub "${TenantID}"
+  AddAPIGatewayToWAF:
+    Type: AWS::WAFv2::WebACLAssociation
+    Properties:
+      ResourceArn: !Sub 'arn:aws:apigateway:${REGION}::/restapis/${RestApi.RestApiId}/stages/${APIStage}'
+      WebACLArn: !Sub '${WebACLARN}'
+
+Outputs:
+  RestApiID:
+    Description: "API Gateway ID"
+    Value: !Ref RestApi
+    Export:
+      Name: !Sub "${TenantID}-RestApiID"

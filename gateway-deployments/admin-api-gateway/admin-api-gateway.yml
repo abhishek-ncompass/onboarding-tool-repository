@@ -1,0 +1,222 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+#config endpoint, contract endpoint, vpc link, nlb dns, tenant Name, tenant ID, user pool dynamic
+
+Parameters:
+  UserPoolArn: 
+    Type: String
+    Description: Admin User Pool Arn
+  ENV:
+    Type: String
+    Description: Environment
+  WebACLARN: 
+    Type: String
+    Description: WebACLARN
+  REGION:
+    Type: String
+    Description: Region 
+
+Resources:
+  RestApi:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: "Admin API Gateway"
+      Body:
+        openapi: "3.0.1"
+        info:
+          title: "Tenant Onboarding APIs"
+          description: "API for Phonex Admin Site"
+          version: "2021-12-03T11:12:14Z"
+        components:
+          schemas:
+            Empty:
+              title: "Empty Schema"
+              type: "object"
+          securitySchemes:
+            PxAdminAuthorizer:
+              type: "apiKey"
+              name: "Authorization"
+              in: "header"
+              x-amazon-apigateway-authtype: "cognito_user_pools"
+              x-amazon-apigateway-authorizer:
+                type: "cognito_user_pools"
+                providerARNs:
+                - !Ref UserPoolArn
+        x-amazon-apigateway-gateway-responses:
+          DEFAULT_5XX:
+            responseParameters:
+              gatewayresponse.header.Access-Control-Allow-Methods: "'OPTIONS,GET,POST,PUT,PATCH,DELETE'"
+              gatewayresponse.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              gatewayresponse.header.Access-Control-Expose-Headers: "'X-Amzn-Trace-Id,X-Amzn-Waf-Action'"     
+              gatewayresponse.header.Access-Control-Allow-Origin: "'*'"          
+          DEFAULT_4XX:
+            responseParameters:
+              gatewayresponse.header.Access-Control-Allow-Methods: "'OPTIONS,GET,POST,PUT,PATCH,DELETE'"
+              gatewayresponse.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amzn-Waf-Action'"   
+              gatewayresponse.header.Access-Control-Expose-Headers: "'X-Amzn-Trace-Id,X-Amzn-Waf-Action'" 
+              gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+          WAF_FILTERED:
+            responseParameters:
+              gatewayresponse.header.Access-Control-Allow-Methods: "'OPTIONS,GET,POST,PUT,PATCH,DELETE'"
+              gatewayresponse.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amzn-Waf-Action,waf-block-header'"   
+              gatewayresponse.header.Access-Control-Expose-Headers: "'X-Amzn-Trace-Id,X-Amzn-Waf-Action,waf-block-header'"  
+              gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+        x-amazon-apigateway-binary-media-types:
+        - "application/excel"
+        - "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        - "application/octet-stream"
+        - "application/pdf"
+        - "multipart/form-data"
+        - "text/csv"
+        - "application/vnd.ms-excel"
+        paths:
+          /code-deployment/versioned-to-release:
+            post:
+              responses:
+                "200":
+                  description: "200 response"
+                  headers:
+                    Access-Control-Allow-Origin:
+                      schema:
+                        type: "string"
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/Empty"
+              x-amazon-apigateway-integration:
+                type: "aws_proxy"
+                httpMethod: "POST"
+                uri: !ImportValue
+                  'Fn::Sub': 'Admin-Tool-Invoke-${ENV}-arn'
+                responses:
+                  default:
+                    statusCode: "200"
+                    responseParameters:
+                      method.response.header.Access-Control-Allow-Origin: "'*'"
+                passthroughBehavior: "when_no_match"
+                contentHandling: "CONVERT_TO_TEXT"
+            options:
+              responses:
+                "200":
+                  description: "200 response"
+                  headers:
+                    Access-Control-Allow-Origin:
+                      schema:
+                        type: "string"
+                    Access-Control-Allow-Methods:
+                      schema:
+                        type: "string"
+                    Access-Control-Allow-Headers:
+                      schema:
+                        type: "string"
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/Empty"
+              x-amazon-apigateway-integration:
+                type: "mock"
+                responses:
+                  default:
+                    statusCode: "200"
+                    responseParameters:
+                      method.response.header.Access-Control-Allow-Methods: "'OPTIONS,POST'"
+                      method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+                      method.response.header.Access-Control-Allow-Origin: "'*'"
+                requestTemplates:
+                  application/json: "{\"statusCode\": 200}"
+                passthroughBehavior: "when_no_match" 
+          /flush-rds-host:
+            post:
+              responses:
+                "200":
+                  description: "200 response"
+                  headers:
+                    Access-Control-Allow-Origin:
+                      schema:
+                        type: "string"
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/Empty"
+              x-amazon-apigateway-integration:
+                type: "aws_proxy"
+                httpMethod: "POST"
+                uri: !ImportValue
+                  'Fn::Sub': 'flush-rds-host-${ENV}-arn'
+                responses:
+                  default:
+                    statusCode: "200"
+                    responseParameters:
+                      method.response.header.Access-Control-Allow-Origin: "'*'"
+                passthroughBehavior: "when_no_match"
+                contentHandling: "CONVERT_TO_TEXT"
+            options:
+              responses:
+                "200":
+                  description: "200 response"
+                  headers:
+                    Access-Control-Allow-Origin:
+                      schema:
+                        type: "string"
+                    Access-Control-Allow-Methods:
+                      schema:
+                        type: "string"
+                    Access-Control-Allow-Headers:
+                      schema:
+                        type: "string"
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/Empty"
+              x-amazon-apigateway-integration:
+                type: "mock"
+                responses:
+                  default:
+                    statusCode: "200"
+                    responseParameters:
+                      method.response.header.Access-Control-Allow-Methods: "'OPTIONS,POST'"
+                      method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+                      method.response.header.Access-Control-Allow-Origin: "'*'"
+                requestTemplates:
+                  application/json: "{\"statusCode\": 200}"
+                passthroughBehavior: "when_no_match" 
+
+
+      Tags: 
+        - Key: tenant_id
+          Value: shared  
+  APIDeployment$TIMESTAMP$:
+    Type: AWS::ApiGateway::Deployment
+    Properties:
+      RestApiId: !Ref RestApi
+      Description: 'First deployment: Integration Stage'
+  APIStage:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      StageName: 'Integration'
+      RestApiId: !Ref RestApi
+      DeploymentId: !Ref APIDeployment$TIMESTAMP$
+      Description: 'Integration Stage'
+      CacheClusterEnabled: false
+      TracingEnabled : true
+      MethodSettings: 
+        - DataTraceEnabled: true
+          HttpMethod: "*"
+          LoggingLevel: "INFO"
+          MetricsEnabled: true
+          ResourcePath: "/*"
+      Tags: 
+        - Key: tenant_id
+          Value: shared
+  AddAPIGatewayToWAF:       
+    Type: AWS::WAFv2::WebACLAssociation
+    DependsOn: APIStage
+    Properties:
+      ResourceArn: !Sub 'arn:aws:apigateway:${REGION}::/restapis/${RestApi.RestApiId}/stages/Integration'
+      WebACLArn: !Sub '${WebACLARN}'
+Outputs:
+  RestApiID:
+    Description: "Admin API Gateway ID"
+    Value: !Ref RestApi
+    Export:
+      Name: !Sub "Admin-RestApiID"
