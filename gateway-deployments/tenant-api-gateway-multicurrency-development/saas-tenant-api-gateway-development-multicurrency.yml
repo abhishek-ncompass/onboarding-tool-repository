@@ -109,128 +109,66 @@ Resources:
         - "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         - "application/octet-stream"
         - "application/pdf"
-        paths:
-          /{proxy+}:
-            options:
-              responses:
-                "200":
-                  description: "200 response"
-                  headers:
-                    Access-Control-Allow-Origin:
-                      schema:
-                        type: "string"
-                    Access-Control-Allow-Methods:
-                      schema:
-                        type: "string"
-                    Access-Control-Allow-Headers:
-                      schema:
-                        type: "string"
-                    Access-Control-Expose-Headers:
-                      schema:
-                        type: "string"    
-                  content:
-                    application/json:
-                      schema:
-                        $ref: "#/components/schemas/Empty"
-              x-amazon-apigateway-integration:
-                responses:
-                  default:
-                    statusCode: "200"
-                    responseParameters:
-                      method.response.header.Access-Control-Allow-Methods: "'OPTIONS,GET,PUT,PATCH,DELETE,POST'"
-                      method.response.header.Access-Control-Allow-Headers: "'Authorization,Content-Disposition,Content-Type,File-Name,Pxnr-Buyer-Id,REQUEST_ID,Restriction,X-Amz-Date,X-Amz-Security-Token,X-Amzn-Trace-Id,X-Api-Key,auto-item-map,buyerType,document-metadata,document-type,file-expiration-date,file-name,file-title,includeAnalytics,pxns-participant-id,request_id,ctx-tags,tenant_id,uploadedDocumentId,user_name,ctx-warehouse,x-amzn-trace-id,ctx-currency-code'"
-                      method.response.header.Access-Control-Allow-Origin: "'*'"
-                      method.response.header.Access-Control-Expose-Headers: "'Content-Disposition,REQUEST_ID,ctx-tags,ctx-warehouse,ctx-currency-code'"
-                type: "mock"
-                requestTemplates:
-                  application/json: "{\"statusCode\": 200}"
-                passthroughBehavior: "when_no_match" 
-          /px-api-gateway/stocklist/pricing/accept-import:
-            post:
-              parameters:
-              - name: "ctx-tags"
-                in: "header"
-                required: false
-                schema:
-                  type: "string"
-              - name: "ctx-warehouse"
-                in: "header"
-                required: false
-                schema:
-                  type: "string"              
-              - name: "Accept"
-                in: "header"
-                schema:
-                  type: "string"
-              security:
-              - PxTenantSpecificAuthorizer: []
-              x-amazon-apigateway-integration:
-                type: "http_proxy"
-                connectionId: !Ref VpcLinkID
-                httpMethod: "POST"
-                uri: !Sub "http://${NlbDNS}/api/stocklist/pricing/accept-import"
-                responses:
-                  "200":
-                    statusCode: "200"
-                requestParameters:
-                  integration.request.header.email: "context.authorizer.claims.email"
-                  integration.request.header.tenant_id: "context.authorizer.claims.custom:tenant_id"
-                  integration.request.header.sso_tenant_id: "context.authorizer.claims.custom:sso_tenant_id"
-                  integration.request.header.roles: "context.authorizer.claims.cognito:groups"
-                  integration.request.header.ctx-tags: "method.request.header.ctx-tags"
-                  integration.request.header.ctx-warehouse: "method.request.header.ctx-warehouse"
-                connectionType: "VPC_LINK"
-          /px-api-gateway/account/buyer-poe-list:
-            get:
-              parameters:
-              - name: "ctx-tags"
-                in: "header"
-                required: false
-                schema:
-                  type: "string"
-              - name: "ctx-warehouse"
-                in: "header"
-                required: false
-                schema:
-                  type: "string"
-              security:
-              - PxTenantSpecificAuthorizer: []
-              x-amazon-apigateway-integration:
-                httpMethod: "POST"
-                uri: !ImportValue
-                  'Fn::Sub': 'px-saas-account-details-${ENV}-arn'
-                responses:
-                  default:
-                    statusCode: "200"
-                passthroughBehavior: "when_no_match"
-                contentHandling: "CONVERT_TO_TEXT"
-                type: "aws_proxy"        
-          /px-api-gateway/account/buyer-poe-detail:
-            get:
-              parameters:
-              - name: "ctx-tags"
-                in: "header"
-                required: false
-                schema:
-                  type: "string"
-              - name: "ctx-warehouse"
-                in: "header"
-                required: false
-                schema:
-                  type: "string"
-              security:
-              - PxTenantSpecificAuthorizer: []
-              x-amazon-apigateway-integration:
-                httpMethod: "POST"
-                uri: !ImportValue
-                  'Fn::Sub': 'px-saas-account-details-${ENV}-arn'
-                responses:
-                  default:
-                    statusCode: "200"
-                passthroughBehavior: "when_no_match"
-                contentHandling: "CONVERT_TO_TEXT"
-                type: "aws_proxy"              
-      Tags: 
+        paths:  /px-api-gateway/pxw/inventory/warehouse/:
+    get:
+      parameters:
+      - in: header
+        name: ctx-tags
+        required: false
+        schema:
+          type: string
+      security:
+      - PxTenantSpecificAuthorizer: []
+      x-amazon-apigateway-integration:
+        contentHandling: CONVERT_TO_TEXT
+        httpMethod: POST
+        requestParameters:
+          integration.request.header.ctx-tags: method.request.header.ctx-tags
+          integration.request.header.email: context.authorizer.claims.email
+          integration.request.header.roles: context.authorizer.claims.cognito:groups
+          integration.request.header.sso_tenant_id: context.authorizer.claims.custom:sso_tenant_id
+          integration.request.header.tenant_id: context.authorizer.claims.custom:tenant_id
+        responses:
+          default:
+            statusCode: '200'
+        type: aws_proxy
+        uri:
+          Fn::Sub: PXWInventoryARN-${ENV}
+    options:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Empty'
+          description: 200 response
+          headers:
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+            Access-Control-Allow-Methods:
+              schema:
+                type: string
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+            Access-Control-Expose-Headers:
+              schema:
+                type: string
+      x-amazon-apigateway-integration:
+        passthroughBehavior: when_no_match
+        requestTemplates:
+          application/json: '{"statusCode": 200}'
+        responses:
+          default:
+            responseParameters:
+              method.response.header.Access-Control-Allow-Headers: '''Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amzn-Waf-Action,ctx-tags'''
+              method.response.header.Access-Control-Allow-Methods: '''OPTIONS,GET'''
+              method.response.header.Access-Control-Allow-Origin: '''*'''
+              method.response.header.Access-Control-Expose-Headers: '''ctx-tags'''
+            statusCode: '200'
+        type: mock
+Tags: 
         - Key: tenant_id
           Value: !Sub "${TenantID}"
   APIDeployment$TIMESTAMP$:
