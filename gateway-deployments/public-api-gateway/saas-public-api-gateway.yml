@@ -10,7 +10,7 @@ Parameters:
   ENV:
     Type: String
     Description: Environment
-  WebACLARN: 
+  WebACLARN:
     Type: String
     Description: WebACLARN
   REGION:
@@ -21,10 +21,9 @@ Parameters:
     Description: AWS Account ID
 
 Conditions:
-  IsProd: !Equals 
+  IsProd: !Equals
   - !Ref ENV
-  - "prod" 
-
+  - "prod"
 Resources:
   RestApi:
     Type: AWS::ApiGateway::RestApi
@@ -46,19 +45,19 @@ Resources:
             responseParameters:
               gatewayresponse.header.Access-Control-Allow-Methods: "'OPTIONS,GET,POST,PUT,PATCH,DELETE'"
               gatewayresponse.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
-              gatewayresponse.header.Access-Control-Expose-Headers: "'X-Amzn-Trace-Id,X-Amzn-Waf-Action'" 
+              gatewayresponse.header.Access-Control-Expose-Headers: "'X-Amzn-Trace-Id,X-Amzn-Waf-Action'"
               gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
           DEFAULT_4XX:
             responseParameters:
               gatewayresponse.header.Access-Control-Allow-Methods: "'OPTIONS,GET,POST,PUT,PATCH,DELETE'"
-              gatewayresponse.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amzn-Waf-Action'"   
-              gatewayresponse.header.Access-Control-Expose-Headers: "'X-Amzn-Trace-Id,X-Amzn-Waf-Action'" 
+              gatewayresponse.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amzn-Waf-Action'"
+              gatewayresponse.header.Access-Control-Expose-Headers: "'X-Amzn-Trace-Id,X-Amzn-Waf-Action'"
               gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
           WAF_FILTERED:
             responseParameters:
               gatewayresponse.header.Access-Control-Allow-Methods: "'OPTIONS,GET,POST,PUT,PATCH,DELETE'"
-              gatewayresponse.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amzn-Waf-Action,waf-block-header'"   
-              gatewayresponse.header.Access-Control-Expose-Headers: "'X-Amzn-Trace-Id,X-Amzn-Waf-Action,waf-block-header'"  
+              gatewayresponse.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amzn-Waf-Action,waf-block-header'"
+              gatewayresponse.header.Access-Control-Expose-Headers: "'X-Amzn-Trace-Id,X-Amzn-Waf-Action,waf-block-header'"
               gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
         x-amazon-apigateway-binary-media-types:
         - "application/excel"
@@ -66,111 +65,111 @@ Resources:
         - "application/octet-stream"
         - "application/pdf"
         paths:
-            /pdf:
-              post:
+          /pdf:
+            post:
+              responses:
+                "200":
+                  description: "200 response"
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/Empty"
+              x-amazon-apigateway-integration:
+                type: "aws_proxy"
+                httpMethod: "POST"
+                uri: !ImportValue
+                  'Fn::Sub': "GenericPDFExport-${ENV}"
                 responses:
-                  "200":
-                    description: "200 response"
-                    content:
-                      application/json:
-                        schema:
-                          $ref: "#/components/schemas/Empty"
-                x-amazon-apigateway-integration:
-                  type: "aws_proxy"
-                  httpMethod: "POST"
-                  uri: !ImportValue
-                    'Fn::Sub': "GenericPDFExport-${ENV}"
-                  responses:
-                    default:
-                      statusCode: "200"
-                  passthroughBehavior: "when_no_match"
-                  contentHandling: "CONVERT_TO_TEXT"
-              options:
+                  default:
+                    statusCode: "200"
+                passthroughBehavior: "when_no_match"
+                contentHandling: "CONVERT_TO_TEXT"
+            options:
+              responses:
+                "200":
+                  description: "200 response"
+                  headers:
+                    Access-Control-Allow-Origin:
+                      schema:
+                        type: "string"
+                    Access-Control-Allow-Methods:
+                      schema:
+                        type: "string"
+                    Access-Control-Allow-Headers:
+                      schema:
+                        type: "string"
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/Empty"
+              x-amazon-apigateway-integration:
+                type: "mock"
                 responses:
-                  "200":
-                    description: "200 response"
-                    headers:
-                      Access-Control-Allow-Origin:
-                        schema:
-                          type: "string"
-                      Access-Control-Allow-Methods:
-                        schema:
-                          type: "string"
-                      Access-Control-Allow-Headers:
-                        schema:
-                          type: "string"
-                    content:
-                      application/json:
-                        schema:
-                          $ref: "#/components/schemas/Empty"
-                x-amazon-apigateway-integration:
-                  type: "mock"
-                  responses:
-                    default:
-                      statusCode: "200"
-                      responseParameters:
-                        method.response.header.Access-Control-Allow-Methods: "'DELETE,GET,HEAD,OPTIONS,PATCH,POST,PUT'"
-                        method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token'"
-                        method.response.header.Access-Control-Allow-Origin: "'*'"
-                  requestTemplates:
-                    application/json: "{\"statusCode\": 200}"
-                  passthroughBehavior: "when_no_match"
-            /px-api-gateway/saas-login/reset-password:
-              post:
+                  default:
+                    statusCode: "200"
+                    responseParameters:
+                      method.response.header.Access-Control-Allow-Methods: "'DELETE,GET,HEAD,OPTIONS,PATCH,POST,PUT'"
+                      method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token'"
+                      method.response.header.Access-Control-Allow-Origin: "'*'"
+                requestTemplates:
+                  application/json: "{\"statusCode\": 200}"
+                passthroughBehavior: "when_no_match"
+          /px-api-gateway/saas-login/reset-password:
+            post:
+              responses:
+                "200":
+                  description: "200 response"
+                  headers:
+                    Access-Control-Allow-Origin:
+                      schema:
+                        type: "string"
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/Empty"
+              x-amazon-apigateway-integration:
+                type: "aws_proxy"
+                httpMethod: "POST"
+                uri: !ImportValue
+                  'Fn::Sub': "px-saas-buyer-onboading-reset-password-api-${ENV}-arn"
                 responses:
-                  "200":
-                    description: "200 response"
-                    headers:
-                      Access-Control-Allow-Origin:
-                        schema:
-                          type: "string"
-                    content:
-                      application/json:
-                        schema:
-                          $ref: "#/components/schemas/Empty"
-                x-amazon-apigateway-integration:
-                  type: "aws_proxy"
-                  httpMethod: "POST"
-                  uri: !ImportValue
-                    'Fn::Sub': "px-saas-buyer-onboading-reset-password-api-${ENV}-arn"
-                  responses:
-                    default:
-                      statusCode: "200"
-                      responseParameters:
-                        method.response.header.Access-Control-Allow-Origin: "'*'"
-                  passthroughBehavior: "when_no_match"
-                  contentHandling: "CONVERT_TO_TEXT"
-              options:
+                  default:
+                    statusCode: "200"
+                    responseParameters:
+                      method.response.header.Access-Control-Allow-Origin: "'*'"
+                passthroughBehavior: "when_no_match"
+                contentHandling: "CONVERT_TO_TEXT"
+            options:
+              responses:
+                "200":
+                  description: "200 response"
+                  headers:
+                    Access-Control-Allow-Origin:
+                      schema:
+                        type: "string"
+                    Access-Control-Allow-Methods:
+                      schema:
+                        type: "string"
+                    Access-Control-Allow-Headers:
+                      schema:
+                        type: "string"
+                  content:
+                    application/json:
+                      schema:
+                        $ref: "#/components/schemas/Empty"
+              x-amazon-apigateway-integration:
+                type: "mock"
                 responses:
-                  "200":
-                    description: "200 response"
-                    headers:
-                      Access-Control-Allow-Origin:
-                        schema:
-                          type: "string"
-                      Access-Control-Allow-Methods:
-                        schema:
-                          type: "string"
-                      Access-Control-Allow-Headers:
-                        schema:
-                          type: "string"
-                    content:
-                      application/json:
-                        schema:
-                          $ref: "#/components/schemas/Empty"
-                x-amazon-apigateway-integration:
-                  type: "mock"
-                  responses:
-                    default:
-                      statusCode: "200"
-                      responseParameters:
-                        method.response.header.Access-Control-Allow-Methods: "'OPTIONS,POST'"
-                        method.response.header.Access-Control-Allow-Headers: "'tenant_id,X-Amzn-Trace-Id,Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
-                        method.response.header.Access-Control-Allow-Origin: "'*'"
-                  requestTemplates:
-                    application/json: "{\"statusCode\": 200}"
-                  passthroughBehavior: "when_no_match"
-        Tags: 
+                  default:
+                    statusCode: "200"
+                    responseParameters:
+                      method.response.header.Access-Control-Allow-Methods: "'OPTIONS,POST'"
+                      method.response.header.Access-Control-Allow-Headers: "'tenant_id,X-Amzn-Trace-Id,Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+                      method.response.header.Access-Control-Allow-Origin: "'*'"
+                requestTemplates:
+                  application/json: "{\"statusCode\": 200}"
+                passthroughBehavior: "when_no_match"
+        Tags:
         - Key: tenant_id
           Value: "shared"
   APIDeployment$TIMESTAMP$:
@@ -186,17 +185,17 @@ Resources:
       DeploymentId: !Ref APIDeployment$TIMESTAMP$
       Description: 'Integration Stage'
       CacheClusterEnabled: false
-      TracingEnabled : true
-      MethodSettings: 
-        - DataTraceEnabled: true
-          HttpMethod: "*"
-          LoggingLevel: "INFO"
-          MetricsEnabled: !If [IsProd, true, false]
-          ResourcePath: "/*"
-      Tags: 
-        - Key: tenant_id
-          Value: !Sub "shared"
-  AddAPIGatewayToWAF:       
+      TracingEnabled: true
+      MethodSettings:
+      - DataTraceEnabled: true
+        HttpMethod: "*"
+        LoggingLevel: "INFO"
+        MetricsEnabled: !If [IsProd, true, false]
+        ResourcePath: "/*"
+      Tags:
+      - Key: tenant_id
+        Value: !Sub "shared"
+  AddAPIGatewayToWAF:
     Type: AWS::WAFv2::WebACLAssociation
     Properties:
       ResourceArn: !Sub 'arn:aws:apigateway:${REGION}::/restapis/${RestApi.RestApiId}/stages/${APIStage}'
@@ -208,3 +207,63 @@ Outputs:
     Value: !Ref RestApi
     Export:
       Name: "Public-RestApiID"
+paths:
+  /px-api-gateway/my-public-endpoint:
+    get:
+      parameters:
+      - name: ctx-tags
+        in: header
+        required: false
+        schema:
+          type: string
+      security:
+      - PxTenantSpecificAuthorizer: []
+      x-amazon-apigateway-integration:
+        httpMethod: POST
+        uri:
+          Fn::Sub: PXWInventoryARN-${ENV}
+        responses:
+          default:
+            statusCode: '200'
+        contentHandling: CONVERT_TO_TEXT
+        type: aws_proxy
+        requestParameters:
+          integration.request.header.email: context.authorizer.claims.email
+          integration.request.header.tenant_id: context.authorizer.claims.custom:tenant_id
+          integration.request.header.sso_tenant_id: context.authorizer.claims.custom:sso_tenant_id
+          integration.request.header.roles: context.authorizer.claims.cognito:groups
+          integration.request.header.ctx-tags: method.request.header.ctx-tags
+    options:
+      responses:
+        '200':
+          description: 200 response
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+            Access-Control-Allow-Methods:
+              schema:
+                type: string
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+            Access-Control-Expose-Headers:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Empty'
+      x-amazon-apigateway-integration:
+        type: mock
+        requestTemplates:
+          application/json: '{"statusCode": 200}'
+        passthroughBehavior: when_no_match
+        responses:
+          default:
+            statusCode: '200'
+            responseParameters:
+              method.response.header.Access-Control-Allow-Methods: "'OPTIONS,GET'"
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amzn-Waf-Action,ctx-tags'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+              method.response.header.Access-Control-Expose-Headers: "'ctx-tags'"
