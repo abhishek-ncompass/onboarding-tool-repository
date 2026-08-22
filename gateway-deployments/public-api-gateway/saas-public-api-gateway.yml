@@ -65,112 +65,66 @@ Resources:
         - "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         - "application/octet-stream"
         - "application/pdf"
-        paths:
-            /pdf:
-              post:
-                responses:
-                  "200":
-                    description: "200 response"
-                    content:
-                      application/json:
-                        schema:
-                          $ref: "#/components/schemas/Empty"
-                x-amazon-apigateway-integration:
-                  type: "aws_proxy"
-                  httpMethod: "POST"
-                  uri: !ImportValue
-                    'Fn::Sub': "GenericPDFExport-${ENV}"
-                  responses:
-                    default:
-                      statusCode: "200"
-                  passthroughBehavior: "when_no_match"
-                  contentHandling: "CONVERT_TO_TEXT"
-              options:
-                responses:
-                  "200":
-                    description: "200 response"
-                    headers:
-                      Access-Control-Allow-Origin:
-                        schema:
-                          type: "string"
-                      Access-Control-Allow-Methods:
-                        schema:
-                          type: "string"
-                      Access-Control-Allow-Headers:
-                        schema:
-                          type: "string"
-                    content:
-                      application/json:
-                        schema:
-                          $ref: "#/components/schemas/Empty"
-                x-amazon-apigateway-integration:
-                  type: "mock"
-                  responses:
-                    default:
-                      statusCode: "200"
-                      responseParameters:
-                        method.response.header.Access-Control-Allow-Methods: "'DELETE,GET,HEAD,OPTIONS,PATCH,POST,PUT'"
-                        method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token'"
-                        method.response.header.Access-Control-Allow-Origin: "'*'"
-                  requestTemplates:
-                    application/json: "{\"statusCode\": 200}"
-                  passthroughBehavior: "when_no_match"
-            /px-api-gateway/saas-login/reset-password:
-              post:
-                responses:
-                  "200":
-                    description: "200 response"
-                    headers:
-                      Access-Control-Allow-Origin:
-                        schema:
-                          type: "string"
-                    content:
-                      application/json:
-                        schema:
-                          $ref: "#/components/schemas/Empty"
-                x-amazon-apigateway-integration:
-                  type: "aws_proxy"
-                  httpMethod: "POST"
-                  uri: !ImportValue
-                    'Fn::Sub': "px-saas-buyer-onboading-reset-password-api-${ENV}-arn"
-                  responses:
-                    default:
-                      statusCode: "200"
-                      responseParameters:
-                        method.response.header.Access-Control-Allow-Origin: "'*'"
-                  passthroughBehavior: "when_no_match"
-                  contentHandling: "CONVERT_TO_TEXT"
-              options:
-                responses:
-                  "200":
-                    description: "200 response"
-                    headers:
-                      Access-Control-Allow-Origin:
-                        schema:
-                          type: "string"
-                      Access-Control-Allow-Methods:
-                        schema:
-                          type: "string"
-                      Access-Control-Allow-Headers:
-                        schema:
-                          type: "string"
-                    content:
-                      application/json:
-                        schema:
-                          $ref: "#/components/schemas/Empty"
-                x-amazon-apigateway-integration:
-                  type: "mock"
-                  responses:
-                    default:
-                      statusCode: "200"
-                      responseParameters:
-                        method.response.header.Access-Control-Allow-Methods: "'OPTIONS,POST'"
-                        method.response.header.Access-Control-Allow-Headers: "'tenant_id,X-Amzn-Trace-Id,Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
-                        method.response.header.Access-Control-Allow-Origin: "'*'"
-                  requestTemplates:
-                    application/json: "{\"statusCode\": 200}"
-                  passthroughBehavior: "when_no_match"
-        Tags: 
+        paths:  /px-api-gateway/my-public-endpoint:
+    get:
+      parameters:
+      - in: header
+        name: ctx-tags
+        required: false
+        schema:
+          type: string
+      security:
+      - PxTenantSpecificAuthorizer: []
+      x-amazon-apigateway-integration:
+        contentHandling: CONVERT_TO_TEXT
+        httpMethod: POST
+        requestParameters:
+          integration.request.header.ctx-tags: method.request.header.ctx-tags
+          integration.request.header.email: context.authorizer.claims.email
+          integration.request.header.roles: context.authorizer.claims.cognito:groups
+          integration.request.header.sso_tenant_id: context.authorizer.claims.custom:sso_tenant_id
+          integration.request.header.tenant_id: context.authorizer.claims.custom:tenant_id
+        responses:
+          default:
+            statusCode: '200'
+        type: aws_proxy
+        uri:
+          Fn::Sub: PXWInventoryARN-${ENV}
+    options:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Empty'
+          description: 200 response
+          headers:
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+            Access-Control-Allow-Methods:
+              schema:
+                type: string
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+            Access-Control-Expose-Headers:
+              schema:
+                type: string
+      x-amazon-apigateway-integration:
+        passthroughBehavior: when_no_match
+        requestTemplates:
+          application/json: '{"statusCode": 200}'
+        responses:
+          default:
+            responseParameters:
+              method.response.header.Access-Control-Allow-Headers: '''Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amzn-Waf-Action,ctx-tags'''
+              method.response.header.Access-Control-Allow-Methods: '''OPTIONS,GET'''
+              method.response.header.Access-Control-Allow-Origin: '''*'''
+              method.response.header.Access-Control-Expose-Headers: '''ctx-tags'''
+            statusCode: '200'
+        type: mock
+Tags: 
         - Key: tenant_id
           Value: "shared"
   APIDeployment$TIMESTAMP$:
